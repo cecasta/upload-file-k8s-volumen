@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-upload-dev
+  namespace: productos-dev
+  labels:
+    app: file-upload-dev
+spec:
+  selector:
+    matchLabels:
+      app: file-upload-dev
+  template:
+    metadata:
+      labels:
+        app: file-upload-dev
+    spec:
+      volumes:
+        - name: pv-storage-file-receiver
+          persistentVolumeClaim:
+            claimName: pvc-file-receiver-dev    
+      initContainers:
+        - name: volume-permissions
+          image: busybox
+          command: ['sh', '-c', 'chown -R 1000:1000 /uploads']
+          volumeMounts:
+            - mountPath: "/uploads"
+              name: pv-storage-file-receiver
+      containers:
+        - name: file-upload-dev-dev
+          image: "file-upload:v3"
+          imagePullPolicy: Never
+          volumeMounts:
+            - mountPath: "/uploads"
+              name: pv-storage-file-receiver          
+          env:
+            - name: PORT
+              valueFrom:
+                secretKeyRef:
+                  name: secret-file-upload-dev
+                  key: PORT
+            - name: PATH_UPLOAD
+              valueFrom:
+                secretKeyRef:
+                  name: secret-file-upload-dev
+                  key: PATH_UPLOAD                  
+          resources:
+            limits:
+              cpu: 30m
+              memory: 128Mi
+            requests:
+              cpu: 20m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: file-upload-dev
+  namespace: productos-dev
+  labels:
+    app: file-upload-dev
+spec:
+  ports:
+    - port: 3000
+      targetPort: 3000
+  selector:
+    app: file-upload-dev
